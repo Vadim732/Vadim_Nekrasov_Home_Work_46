@@ -86,8 +86,18 @@ public class Client
         using var client = new TcpClient();
         try
         {
-            await client.ConnectAsync(host, port);
-            return true;
+            var connectTask = client.ConnectAsync(host, port);
+            var timeoutTask = Task.Delay(TimeSpan.FromSeconds(10));
+
+            var completedTask = await Task.WhenAny(connectTask, timeoutTask);
+            if (completedTask == connectTask && client.Connected)
+            {
+                return true;
+            }
+            else
+            {
+                return false;
+            }
         }
         catch (Exception)
         {
