@@ -115,27 +115,30 @@ public class Client
             var reader = new StreamReader(stream);
             var writer = new StreamWriter(stream);
 
-            string userName;
+            Console.WriteLine("Enter your name:");
+            string userName = Console.ReadLine();
+            await writer.WriteLineAsync(userName);
+            await writer.FlushAsync();
+
+            string password;
             while (true)
             {
-                Console.WriteLine("Enter your name:");
-                userName = Console.ReadLine();
-                if (string.IsNullOrEmpty(userName)) continue;
+                Console.WriteLine("Enter your password:");
+                password = Console.ReadLine();
+                if (string.IsNullOrEmpty(password)) continue;
 
-                await writer.WriteLineAsync(userName);
+                await writer.WriteLineAsync(password);
                 await writer.FlushAsync();
-                string? response = await reader.ReadLineAsync();
+                string? passwordResponse = await reader.ReadLineAsync();
 
-                if (response == "Welcome")
+                if (passwordResponse == "Welcome")
                 {
                     Console.WriteLine($"Welcome to the chat, {userName}!");
-                    string? usersInChat = await reader.ReadLineAsync();
-                    Console.WriteLine(usersInChat);
                     break;
                 }
-                else if (response == "NameTaken")
+                else if (passwordResponse == "IncorrectPassword")
                 {
-                    Console.WriteLine("This name is already taken! Enter another name.");
+                    Console.WriteLine("Incorrect password!");
                 }
             }
 
@@ -152,6 +155,7 @@ public class Client
             client.Close();
         }
     }
+
 
     private async Task SendMessageAsync(StreamWriter writer, string? userName)
     {
