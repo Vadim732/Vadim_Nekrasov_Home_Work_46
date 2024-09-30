@@ -5,18 +5,19 @@ namespace ChatClient;
 
 public class Client
 {
-    private const string Path = "serverData.json";
+    private const string ServerPath = "serverData.json";
+    private const string UserPath = "userData.json";
 
     public async Task ConnectServerAsync()
     {
         string? ip = null;
         int port = 0;
         
-        if (File.Exists(Path))
+        if (File.Exists(ServerPath))
         {
             try
             {
-                var serverData = JsonSerializer.Deserialize<ServerData>(File.ReadAllText(Path));
+                var serverData = JsonSerializer.Deserialize<ServerData>(File.ReadAllText(ServerPath));
                 if (serverData != null)
                 {
                     ip = serverData.IP;
@@ -134,6 +135,7 @@ public class Client
                 if (passwordResponse == "Welcome")
                 {
                     Console.WriteLine($"Welcome to the chat, {userName}!");
+                    SaveUserData(userName, password);
                     break;
                 }
                 else if (passwordResponse == "IncorrectPassword")
@@ -155,7 +157,6 @@ public class Client
             client.Close();
         }
     }
-
 
     private async Task SendMessageAsync(StreamWriter writer, string? userName)
     {
@@ -195,7 +196,18 @@ public class Client
             Port = port
         };
         string json = JsonSerializer.Serialize(serverData);
-        File.WriteAllText(Path, json);
+        File.WriteAllText(ServerPath, json);
+    }
+    
+    private void SaveUserData(string userName, string password)
+    {
+        var userData = new UserData
+        {
+            UserName = userName,
+            Password = password
+        };
+        string json = JsonSerializer.Serialize(userData);
+        File.WriteAllText(UserPath, json);
     }
 }
 
@@ -203,4 +215,10 @@ public class ServerData
 {
     public string IP { get; set; }
     public int Port { get; set; }
+}
+
+public class UserData
+{
+    public string UserName { get; set; }
+    public string Password { get; set; }
 }
