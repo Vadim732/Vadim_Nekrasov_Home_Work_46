@@ -115,38 +115,44 @@ public class Client
             var stream = client.GetStream();
             var reader = new StreamReader(stream);
             var writer = new StreamWriter(stream);
-
-            Console.WriteLine("Enter your name:");
-            string userName = Console.ReadLine();
-            await writer.WriteLineAsync(userName);
-            await writer.FlushAsync();
-
-            string password;
-            while (true)
+            
+            if (File.Exists(UserPath))
             {
-                Console.WriteLine("Enter your password:");
-                password = Console.ReadLine();
-                if (string.IsNullOrEmpty(password)) continue;
-
-                await writer.WriteLineAsync(password);
-                await writer.FlushAsync();
-                string? passwordResponse = await reader.ReadLineAsync();
-
-                if (passwordResponse == "Welcome")
+                try
                 {
-                    Console.WriteLine($"Welcome to the chat, {userName}!");
-                    SaveUserData(userName, password);
-                    break;
+                    var userData = JsonSerializer.Deserialize<UserData>(File.ReadAllText(UserPath));
+                    if (userData != null)
+                    {
+                        Console.WriteLine("Attempting automatic login...");
+                        await writer.WriteLineAsync(userData.UserName);
+                        await writer.FlushAsync();
+                        
+                        await Task.Delay(TimeSpan.FromSeconds(5));
+                        await writer.WriteLineAsync(userData.Password);
+                        await writer.FlushAsync();
+
+                        string? loginResponse = await reader.ReadLineAsync();
+                        if (loginResponse == "Welcome")
+                        {
+                            Console.WriteLine($"Welcome to the chat, {userData.UserName}!");
+                            await EnterChatAsync(reader, writer, userData.UserName);
+                            return;
+                        }
+                        else if (loginResponse == "IncorrectPassword")
+                        {
+                            Console.WriteLine("Incorrect password!");
+                            await RequestNewPasswordAsync(writer, reader, userData.UserName);
+                            return;
+                        }
+                    }
                 }
-                else if (passwordResponse == "IncorrectPassword")
+                catch (Exception ex)
                 {
-                    Console.WriteLine("Incorrect password!");
+                    Console.WriteLine($"Error reading user data: {ex.Message}");
                 }
             }
-
-            var receiveTask = ReceiveMessageAsync(reader);
-            var sendTask = SendMessageAsync(writer, userName);
-            await Task.WhenAny(receiveTask, sendTask);
+            
+            await ManualLoginAsync(writer, reader);
         }
         catch (Exception ex)
         {
@@ -156,6 +162,72 @@ public class Client
         {
             client.Close();
         }
+    }
+    
+    private async Task RequestNewPasswordAsync(StreamWriter writer, StreamReader reader, string userName)
+    {
+        string password;
+        while (true)
+        {
+            Console.WriteLine("Enter your password:");
+            password = Console.ReadLine();
+            if (string.IsNullOrEmpty(password)) continue;
+
+            await writer.WriteLineAsync(password);
+            await writer.FlushAsync();
+            string? passwordResponse = await reader.ReadLineAsync();
+
+            if (passwordResponse == "Welcome")
+            {
+                Console.WriteLine($"Welcome to the chat, {userName}!");
+                SaveUserData(userName, password);
+                await EnterChatAsync(reader, writer, userName);
+                break;
+            }
+            else if (passwordResponse == "IncorrectPassword")
+            {
+                Console.WriteLine("Incorrect password!");
+            }
+        }
+    }
+
+    private async Task ManualLoginAsync(StreamWriter writer, StreamReader reader)
+    {
+        Console.WriteLine("Enter your name:");
+        string userName = Console.ReadLine();
+        await writer.WriteLineAsync(userName);
+        await writer.FlushAsync();
+
+        string password;
+        while (true)
+        {
+            Console.WriteLine("Enter your password:");
+            password = Console.ReadLine();
+            if (string.IsNullOrEmpty(password)) continue;
+
+            await writer.WriteLineAsync(password);
+            await writer.FlushAsync();
+            string? passwordResponse = await reader.ReadLineAsync();
+
+            if (passwordResponse == "Welcome")
+            {
+                Console.WriteLine($"Welcome to the chat, {userName}!");
+                SaveUserData(userName, password);
+                await EnterChatAsync(reader, writer, userName);
+                break;
+            }
+            else if (passwordResponse == "IncorrectPassword")
+            {
+                Console.WriteLine("Incorrect password!");
+            }
+        }
+    }
+
+    private async Task EnterChatAsync(StreamReader reader, StreamWriter writer, string userName)
+    {
+        var receiveTask = ReceiveMessageAsync(reader);
+        var sendTask = SendMessageAsync(writer, userName);
+        await Task.WhenAny(receiveTask, sendTask);
     }
 
     private async Task SendMessageAsync(StreamWriter writer, string? userName)
